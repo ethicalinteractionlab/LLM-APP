@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Study Chat</title>
+
+  <!-- iOS "app-like" hints -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+  <style>
+    html, body { height: 100%; margin: 0; background: #fff; }
+
+    /* Fullscreen iframe */
+    iframe {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    /* Install hint bar */
+    .install-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: rgba(255,255,255,0.96);
+      border-bottom: 1px solid #e6e6e8;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 10px 12px env(safe-area-inset-right) 10px env(safe-area-inset-left);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    .install-bar .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .install-bar .title {
+      font-weight: 700;
+      font-size: 14px;
+      color: #111;
+      margin: 0;
+    }
+    .install-bar .desc {
+      font-size: 12px;
+      color: #555;
+      margin: 2px 0 0;
+      line-height: 1.35;
+    }
+    .install-bar .spacer { flex: 1; }
+    .btn {
+      appearance: none;
+      border: 1px solid #ddd;
+      background: #111;
+      color: #fff;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn.secondary {
+      background: #fff;
+      color: #111;
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      background: rgba(0,0,0,0.35);
+      padding: 18px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    .modal.show { display: flex; align-items: center; justify-content: center; }
+    .modal .card {
+      width: min(560px, 100%);
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid #e6e6e8;
+      padding: 14px 14px 10px;
+    }
+    .modal h2 { margin: 0 0 6px; font-size: 16px; color: #111; }
+    .pill {
+      display: inline-block;
+      padding: 2px 10px;
+      border: 1px solid #e6e6e8;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #333;
+      background: #fafafa;
+      margin-top: 6px;
+    }
+    ol { margin: 10px 0 10px 18px; padding: 0; }
+    li { margin: 8px 0; color: #222; font-size: 14px; }
+    .note {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px dashed #d0d0d6;
+      background: #fafafa;
+      color: #333;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .modal .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      padding-top: 6px;
+    }
+
+    /* Make room for the bar (only when visible) */
+    body.has-install-bar iframe { top: 52px; height: calc(100% - 52px); }
+    @media (max-width: 380px) {
+      body.has-install-bar iframe { top: 60px; height: calc(100% - 60px); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Install hint bar -->
+  <div id="installBar" class="install-bar" style="display:none;">
+    <div class="row">
+      <div>
+        <p class="title">Use like an App</p>
+        <p id="installBarText" class="desc">Add this page to your Home Screen for one-tap access.</p>
+      </div>
+      <div class="spacer"></div>
+      <button id="howBtn" class="btn">How</button>
+      <button id="dismissBtn" class="btn secondary">Dismiss</button>
+    </div>
+  </div>
+
+  <!-- How-to modal -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true" aria-label="Install instructions">
+    <div class="card">
+      <h2>Add to Home Screen</h2>
+      <div id="platformPill" class="pill">Detecting…</div>
+
+      <div id="stepsIOS" style="display:none;">
+        <ol>
+          <li>Open in <b>Safari</b>.</li>
+          <li>Tap <b>Share</b> (⬆️) at the bottom.</li>
+          <li>Select <b>Add to Home Screen</b>.</li>
+          <li>Tap <b>Add</b> (top-right).</li>
+        </ol>
+      </div>
+
+      <div id="stepsAndroid" style="display:none;">
+        <ol>
+          <li>Open in <b>Chrome</b>.</li>
+          <li>Tap the <b>⋮</b> menu (top-right).</li>
+          <li>Select <b>Add to Home screen</b> or <b>Install app</b>.</li>
+          <li>Confirm <b>Install/Add</b>.</li>
+        </ol>
+      </div>
+
+      <div id="inAppNote" class="note" style="display:none;">
+        If you opened this inside WeChat/QQ, “Add to Home Screen” may not appear.
+        Tap the top-right menu and choose <b>Open in browser</b> (Safari on iPhone, Chrome on Android).
+      </div>
+
+      <div class="actions">
+        <button id="closeBtn" class="btn secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Your Dify chatbot -->
+  <iframe id="chatFrame" allow="microphone"></iframe>
+
+  <script>
+    // ====== EDIT HERE ONLY if you change bots later ======
+    const IFRAME_BASE = "https://udify.app/agent/qY4MYInKOXeDKo4X";
+    const BOT_VERSION = "20260309_v1"; // Change this value every time you update the model/bot
+    const iframeEl = document.getElementById("chatFrame");
+
+    function loadBot(forceRefresh = false) {
+      const url = new URL(IFRAME_BASE);
+      url.searchParams.set("botv", BOT_VERSION);
+
+      // Extra cache-busting when Android restores an old page instance
+      if (forceRefresh) {
+        url.searchParams.set("_ts", Date.now().toString());
+      }
+
+      iframeEl.src = url.toString();
+    }
+
+    // Initial load
+    loadBot(false);
+
+    // ====== Detection ======
+    const ua = navigator.userAgent || "";
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const isAndroid = /Android/i.test(ua);
+    const isWeChat = /MicroMessenger/i.test(ua);
+    const isQQ = /\sQQ\//i.test(ua) || /QQBrowser/i.test(ua);
+    const isInApp = isWeChat || isQQ;
+
+    // iOS standalone check (when launched from home screen)
+    const isStandaloneIOS = (window.navigator.standalone === true);
+    // Some Android browsers expose display-mode
+    const isStandaloneDisplayMode = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
+    const isStandalone = isStandaloneIOS || isStandaloneDisplayMode;
+
+    // ====== UI elements ======
+    const installBar = document.getElementById("installBar");
+    const installBarText = document.getElementById("installBarText");
+    const howBtn = document.getElementById("howBtn");
+    const dismissBtn = document.getElementById("dismissBtn");
+
+    const modal = document.getElementById("modal");
+    const closeBtn = document.getElementById("closeBtn");
+    const stepsIOS = document.getElementById("stepsIOS");
+    const stepsAndroid = document.getElementById("stepsAndroid");
+    const platformPill = document.getElementById("platformPill");
+    const inAppNote = document.getElementById("inAppNote");
+
+    // ====== Decide whether to show the bar ======
+    const DISMISS_KEY = "install_hint_dismissed_v1";
+    const dismissed = localStorage.getItem(DISMISS_KEY) === "1";
+
+    // Show hint only if NOT already standalone and not dismissed
+    if (!isStandalone && !dismissed) {
+      installBar.style.display = "block";
+      document.body.classList.add("has-install-bar");
+
+      if (isIOS) {
+        installBarText.textContent = "Add to Home Screen in Safari for one-tap access.";
+      } else if (isAndroid) {
+        installBarText.textContent = "Use Chrome menu → Add to Home screen / Install app.";
+      } else {
+        installBarText.textContent = "Add this page to your Home Screen for one-tap access.";
+      }
+    }
+
+    // Configure modal content
+    platformPill.textContent = isIOS ? "iPhone/iPad (Safari)" : (isAndroid ? "Android (Chrome)" : "Browser");
+    stepsIOS.style.display = isIOS ? "block" : "none";
+    stepsAndroid.style.display = isIOS ? "none" : "block";
+    inAppNote.style.display = isInApp ? "block" : "none";
+
+    // Handlers
+    function openModal() { modal.classList.add("show"); }
+    function closeModal() { modal.classList.remove("show"); }
+
+    howBtn && howBtn.addEventListener("click", openModal);
+    closeBtn && closeBtn.addEventListener("click", closeModal);
+    modal && modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+
+    dismissBtn && dismissBtn.addEventListener("click", () => {
+      localStorage.setItem(DISMISS_KEY, "1");
+      installBar.style.display = "none";
+      document.body.classList.remove("has-install-bar");
+    });
+
+    // Android is more likely to restore an old page/iframe from memory.
+    // Force-refresh the iframe when the page becomes visible again.
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted || isAndroid) {
+        loadBot(true);
+      }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && isAndroid) {
+        loadBot(true);
+      }
+    });
+  </script>
+</body>
+</html>
